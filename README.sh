@@ -14,6 +14,7 @@ DOC_BUILD_DIR=$CODE_SRC_DIR/docs
 DOC_SRC_DIR=$(pwd)
 
 cd $DOC_BUILD_DIR
+. .venv/bin/activate
 make html
 # TODO: delte absent files first
 # for file in $(ls) that is not in $KEEP_LIST,
