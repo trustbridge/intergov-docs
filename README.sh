@@ -19,3 +19,4 @@ make html
 # for file in $(ls) that is not in $KEEP_LIST,
 # if it is not in ls ...
 cp -r _build/html/* $DOC_SRC_DIR
+touch $DOC_SRC_DIR/.nojekyl
