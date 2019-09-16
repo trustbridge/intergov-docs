@@ -1,0 +1,201 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>intergov.use_cases.deliver_callback &#8212; Intergov Ledger 0.1.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for intergov.use_cases.deliver_callback</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">requests</span>
+
+<span class="kn">from</span> <span class="nn">intergov.loggers</span> <span class="k">import</span> <span class="n">logging</span>  <span class="c1"># NOQA</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="DeliverCallbackUseCase"><a class="viewcode-back" href="../../../events.html#intergov.use_cases.deliver_callback.DeliverCallbackUseCase">[docs]</a><span class="k">class</span> <span class="nc">DeliverCallbackUseCase</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Is used by a callback deliverer worker</span>
+
+<span class="sd">    Reads queue delivery_outbox_repo consisting of tasks in format:</span>
+<span class="sd">        (url, message)</span>
+
+<span class="sd">    Then such message should be either sent to this URL and the task is deleted</span>
+<span class="sd">    or, in case of any error, not to be deleted and to be tried again</span>
+<span class="sd">    (up to MAX_RETRIES times)</span>
+
+<span class="sd">    TODO: rate limits, no more than 100 messages to a single url per 10 seconds?</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">MAX_RETRIES</span> <span class="o">=</span> <span class="mi">2</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delivery_outbox_repo</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">delivery_outbox</span> <span class="o">=</span> <span class="n">delivery_outbox_repo</span>
+
+    <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">deliverable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">delivery_outbox</span><span class="o">.</span><span class="n">get_job</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">deliverable</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="p">(</span><span class="n">queue_msg_id</span><span class="p">,</span> <span class="n">job</span><span class="p">)</span> <span class="o">=</span> <span class="n">deliverable</span>
+
+        <span class="c1"># TODO: test to ensure this message has a callback_url</span>
+        <span class="n">subscribe_url</span> <span class="o">=</span> <span class="n">job</span><span class="p">[</span><span class="s1">&#39;s&#39;</span><span class="p">]</span>
+        <span class="n">payload</span> <span class="o">=</span> <span class="n">job</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;payload&#39;</span><span class="p">)</span>
+
+        <span class="n">retry_number</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;retry&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="c1"># second line of defence. Just in case</span>
+
+        <span class="k">if</span> <span class="n">retry_number</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_RETRIES</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;Dropping notification </span><span class="si">%s</span><span class="s2"> about </span><span class="si">%s</span><span class="s2"> due to max retries reached&quot;</span><span class="p">,</span>
+                <span class="n">subscribe_url</span><span class="p">,</span>
+                <span class="n">payload</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">delivery_outbox</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">queue_msg_id</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">is_delivered</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_deliver_notification</span><span class="p">(</span>
+                <span class="n">subscribe_url</span><span class="p">,</span> <span class="n">payload</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+            <span class="n">is_delivered</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="c1"># we always delete a message, because we want to re-send it with</span>
+        <span class="c1"># retries count increased</span>
+        <span class="n">deleted</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">delivery_outbox</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">queue_msg_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">deleted</span><span class="p">:</span>
+            <span class="c1"># quite strange, may be the same message is being processed twice</span>
+            <span class="c1"># or it&#39;s already exhausted it&#39;s retry count on the</span>
+            <span class="c1"># queue broker side</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;Unable to delete message </span><span class="si">%s</span><span class="s2"> from the delivery_outbox&quot;</span><span class="p">,</span>
+                <span class="n">queue_msg_id</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_delivered</span><span class="p">:</span>
+            <span class="c1"># @Neketek: I think it&#39;s better to not post the job at all instead of filtering it</span>
+            <span class="k">if</span> <span class="n">retry_number</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">MAX_RETRIES</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                    <span class="s2">&quot;Dropping notification </span><span class="si">%s</span><span class="s2"> about </span><span class="si">%s</span><span class="s2"> due to max retries reached&quot;</span><span class="p">,</span>
+                    <span class="n">subscribe_url</span><span class="p">,</span>
+                    <span class="n">payload</span>
+                <span class="p">)</span>
+                <span class="k">return</span> <span class="kc">False</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Delivery failed, re-schedule it&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">delivery_outbox</span><span class="o">.</span><span class="n">post_job</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s1">&#39;s&#39;</span><span class="p">:</span> <span class="n">subscribe_url</span><span class="p">,</span>
+                    <span class="s1">&#39;payload&#39;</span><span class="p">:</span> <span class="n">payload</span><span class="p">,</span>
+                    <span class="s1">&#39;retry&#39;</span><span class="p">:</span> <span class="n">retry_number</span> <span class="o">+</span> <span class="mi">1</span>
+                <span class="p">},</span>
+                <span class="c1"># put it to the end of queue and with some nice delay</span>
+                <span class="c1"># TODO: delay = retry_number * 30 + random.randint(0, 100)</span>
+                <span class="c1"># for real cases (it&#39;s too slow for development)</span>
+                <span class="n">delay_seconds</span><span class="o">=</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span>
+
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span> <span class="nf">_deliver_notification</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">payload</span><span class="p">):</span>
+        <span class="c1"># https://indieweb.org/How_to_publish_and_consume_WebSub</span>
+        <span class="c1"># https://www.w3.org/TR/websub/#x7-content-distribution</span>
+        <span class="c1"># TODO: respect Retry-After header from the receiver</span>
+        <span class="c1"># TODO: move to env variable, is unlikely to be used anyway</span>
+        <span class="n">hub_url</span> <span class="o">=</span> <span class="s2">&quot;127.0.0.1:5102&quot;</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+            <span class="s2">&quot;Sending WebSub payload </span><span class="se">\n</span><span class="s2">    </span><span class="si">%s</span><span class="s2"> to callback URL </span><span class="se">\n</span><span class="s2">    </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="n">payload</span><span class="p">,</span> <span class="n">url</span>
+        <span class="p">)</span>
+        <span class="n">resp</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+            <span class="n">url</span><span class="p">,</span>
+            <span class="n">json</span><span class="o">=</span><span class="n">payload</span><span class="p">,</span>
+            <span class="n">headers</span><span class="o">=</span><span class="p">{</span>
+                <span class="s1">&#39;Content-Type&#39;</span><span class="p">:</span> <span class="s1">&#39;application/json&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;Link&#39;</span><span class="p">:</span> <span class="s1">&#39;&lt;https://</span><span class="si">{}</span><span class="s1">/&gt;; rel=&quot;hub&quot;&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">hub_url</span><span class="p">,</span>
+                <span class="p">),</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">resp</span><span class="o">.</span><span class="n">status_code</span><span class="p">)</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;2&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+                <span class="s2">&quot;Subscription url </span><span class="si">%s</span><span class="s2"> seems to be invalid, returns </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">url</span><span class="p">,</span>
+                <span class="n">resp</span><span class="o">.</span><span class="n">status_code</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">False</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Commonwealth of Australia.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.2.0.
+    </div>
+  </body>
+</html>

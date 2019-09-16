@@ -1,0 +1,215 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>intergov.use_cases.process_message &#8212; Intergov Ledger 0.1.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for intergov.use_cases.process_message</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">intergov.domain.wire_protocols.generic_discrete</span> <span class="k">import</span> <span class="n">Message</span>
+<span class="kn">from</span> <span class="nn">intergov.loggers</span> <span class="k">import</span> <span class="n">logging</span>  <span class="c1"># NOQA</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="ProcessMessageUseCase"><a class="viewcode-back" href="../../../platform.html#intergov.use_cases.ProcessMessageUseCase">[docs]</a><span class="k">class</span> <span class="nc">ProcessMessageUseCase</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Used by the message processing background worker.</span>
+
+<span class="sd">    Gets one message from the channel inbox</span>
+<span class="sd">    and does number of things with it.</span>
+
+<span class="sd">    * dispatch document retreval job</span>
+<span class="sd">      (if the message is from a foreign source)</span>
+<span class="sd">    * dispatch message sending task to channel-outbox</span>
+<span class="sd">      (if the message is from a domestic source)</span>
+<span class="sd">    * ensure the message is stored in the message lake</span>
+<span class="sd">    * ensure the access control lists are updated </span>
+<span class="sd">      for this message</span>
+<span class="sd">    * dispatch any WebSub events required for this message</span>
+
+<span class="sd">    Note: the inbound message may have come from</span>
+<span class="sd">    one of two sources: it may be a message from within</span>
+<span class="sd">    this country, or it may be a message sent from another country.</span>
+<span class="sd">    This use-case works with either message,</span>
+<span class="sd">    however it needs to know which country it is working as</span>
+<span class="sd">    to get the logic right</span>
+<span class="sd">    (that is why it takes a country parameter</span>
+<span class="sd">    when it is instantiated).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">country</span><span class="p">,</span>
+            <span class="n">bc_inbox_repo</span><span class="p">,</span>
+            <span class="n">message_lake_repo</span><span class="p">,</span>
+            <span class="n">object_acl_repo</span><span class="p">,</span>
+            <span class="n">object_retreval_repo</span><span class="p">,</span>
+            <span class="n">notifications_repo</span><span class="p">,</span>  <span class="c1"># TODO: rename to notifications_repo</span>
+            <span class="n">blockchain_outbox_repo</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">country</span> <span class="o">=</span> <span class="n">country</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bc_inbox_repo</span> <span class="o">=</span> <span class="n">bc_inbox_repo</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">message_lake_repo</span> <span class="o">=</span> <span class="n">message_lake_repo</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">object_acl_repo</span> <span class="o">=</span> <span class="n">object_acl_repo</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">object_retreval_repo</span> <span class="o">=</span> <span class="n">object_retreval_repo</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">notifications_repo</span> <span class="o">=</span> <span class="n">notifications_repo</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blockchain_outbox_repo</span> <span class="o">=</span> <span class="n">blockchain_outbox_repo</span>
+
+    <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Get the message from the bc_inbox_repo (which is a events queue)</span>
+        <span class="n">fetched_bc_inbox</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bc_inbox_repo</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">fetched_bc_inbox</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># let it be procssed</span>
+            <span class="p">(</span><span class="n">queue_message_id</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span> <span class="o">=</span> <span class="n">fetched_bc_inbox</span>
+
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Received message to process: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span>
+
+            <span class="c1"># TODO: if something is fine and something is failed then first</span>
+            <span class="c1"># steps will be done again</span>
+            <span class="c1"># fine for object storage but not for queues</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">ml_OK</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">message_lake_repo</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                <span class="n">ml_OK</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">acl_OK</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">object_acl_repo</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                <span class="n">acl_OK</span> <span class="o">=</span> <span class="kc">False</span>
+
+            <span class="c1"># publish outbox is for notifications to internal clients</span>
+            <span class="c1"># and in fact it&#39;s worthy only for received messages, not for sent</span>
+            <span class="c1"># so ideally we shouldn&#39;t notify ourselves about our messages</span>
+            <span class="c1"># or may be we do if local apps want to know about it?...</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># we delay it a little to make sure the message has got to the repo</span>
+                <span class="c1"># and remove status because notifications don&#39;t need it</span>
+                <span class="n">message_without_status</span> <span class="o">=</span> <span class="n">Message</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span>
+                    <span class="n">message</span><span class="o">.</span><span class="n">to_dict</span><span class="p">(</span><span class="n">exclude</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;status&#39;</span><span class="p">])</span>
+                <span class="p">)</span>
+                <span class="n">pub_OK</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">notifications_repo</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+                    <span class="n">message_without_status</span><span class="p">,</span>
+                    <span class="n">delay_seconds</span><span class="o">=</span><span class="mi">3</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                <span class="n">pub_OK</span> <span class="o">=</span> <span class="kc">False</span>
+
+            <span class="c1"># blockchain part - pass the message to the blockchain worker</span>
+            <span class="c1"># so it can be shared to the foreign parties</span>
+            <span class="k">if</span> <span class="n">message</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s1">&#39;pending&#39;</span><span class="p">:</span>
+                <span class="c1"># not received from the foreign party = must be sent</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Sending this message out to the world&quot;</span><span class="p">)</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="n">outbox_OK</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">blockchain_outbox_repo</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                    <span class="n">outbox_OK</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">outbox_OK</span> <span class="o">=</span> <span class="kc">True</span>
+
+            <span class="n">ret_OK</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="k">if</span> <span class="n">message</span><span class="o">.</span><span class="n">status</span> <span class="o">==</span> <span class="s1">&#39;received&#39;</span><span class="p">:</span>
+                <span class="c1"># might need to download remote documents using the</span>
+                <span class="c1"># Documents Spider</span>
+                <span class="k">if</span> <span class="n">message</span><span class="o">.</span><span class="n">sender</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">country</span><span class="p">:</span>
+                    <span class="c1"># if it&#39;s not loopback message (test installations only)</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                        <span class="s2">&quot;Scheduling download remote documents for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">message</span>
+                    <span class="p">)</span>
+                    <span class="k">try</span><span class="p">:</span>
+                        <span class="n">ret_OK</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">object_retreval_repo</span><span class="o">.</span><span class="n">post_job</span><span class="p">({</span>
+                            <span class="s2">&quot;action&quot;</span><span class="p">:</span> <span class="s2">&quot;download-object&quot;</span><span class="p">,</span>
+                            <span class="s2">&quot;sender&quot;</span><span class="p">:</span> <span class="n">message</span><span class="o">.</span><span class="n">sender</span><span class="p">,</span>
+                            <span class="s2">&quot;object&quot;</span><span class="p">:</span> <span class="n">message</span><span class="o">.</span><span class="n">obj</span>
+                        <span class="p">})</span>
+                    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+                        <span class="n">ret_OK</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                        <span class="s2">&quot;Seems that this message is loopback (sent by us back to us)&quot;</span>
+                    <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">ml_OK</span> <span class="ow">and</span> <span class="n">acl_OK</span> <span class="ow">and</span> <span class="n">ret_OK</span> <span class="ow">and</span> <span class="n">pub_OK</span> <span class="ow">and</span> <span class="n">outbox_OK</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bc_inbox_repo</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">queue_message_id</span><span class="p">)</span>
+                <span class="k">return</span> <span class="kc">True</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Task processing failed, will try again later&quot;</span><span class="p">)</span>
+                <span class="c1"># what TODO with the failed ones?</span>
+                <span class="c1"># the problem is the fact that we have submitted message</span>
+                <span class="c1"># to some repos and some other failed,</span>
+                <span class="c1"># which means we must retry just failed submissions</span>
+                <span class="c1"># and it may introduce a tricky state when some external message</span>
+                <span class="c1"># processors will get info from the one source and won&#39;t get it</span>
+                <span class="c1"># from the another. They should wait then.</span>
+                <span class="k">return</span> <span class="kc">False</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Commonwealth of Australia.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.2.0.
+    </div>
+  </body>
+</html>

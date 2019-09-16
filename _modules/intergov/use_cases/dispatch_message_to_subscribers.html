@@ -1,0 +1,163 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>intergov.use_cases.dispatch_message_to_subscribers &#8212; Intergov Ledger 0.1.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for intergov.use_cases.dispatch_message_to_subscribers</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">json</span>
+
+<span class="kn">from</span> <span class="nn">intergov.loggers</span> <span class="k">import</span> <span class="n">logging</span>
+<span class="kn">from</span> <span class="nn">intergov.serializers</span> <span class="k">import</span> <span class="n">generic_discrete_message</span> <span class="k">as</span> <span class="n">ser</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="DispatchMessageToSubscribersUseCase"><a class="viewcode-back" href="../../../events.html#intergov.use_cases.dispatch_message_to_subscribers.DispatchMessageToSubscribersUseCase">[docs]</a><span class="k">class</span> <span class="nc">DispatchMessageToSubscribersUseCase</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Used by the callbacks spreader worker.</span>
+
+<span class="sd">    This is the &quot;fan-out&quot; part of the WebSub,</span>
+<span class="sd">    where each event dispatched </span>
+<span class="sd">    to all the relevant subscribers.</span>
+<span class="sd">    For each event (notification),</span>
+<span class="sd">    it looks-up the relevant subscribers</span>
+<span class="sd">    and dispatches a callback task</span>
+<span class="sd">    so that they will be notified.</span>
+
+<span class="sd">    There is a downstream delivery processor</span>
+<span class="sd">    that actually makes the callback,</span>
+<span class="sd">    it is insulated from this process</span>
+<span class="sd">    by the delivery outbox message queue.</span>
+
+<span class="sd">    Note: In this application</span>
+<span class="sd">    the subscription signature </span>
+<span class="sd">    is based on the message predicate.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">notifications_repo</span><span class="p">,</span>
+            <span class="n">delivery_outbox_repo</span><span class="p">,</span> <span class="n">subscriptions_repo</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">notifications</span> <span class="o">=</span> <span class="n">notifications_repo</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">delivery_outbox</span> <span class="o">=</span> <span class="n">delivery_outbox_repo</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subscriptions</span> <span class="o">=</span> <span class="n">subscriptions_repo</span>
+
+    <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">fetched_publish</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">notifications</span><span class="o">.</span><span class="n">get_job</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">fetched_publish</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="p">(</span><span class="n">publish_msg_id</span><span class="p">,</span> <span class="n">message_job</span><span class="p">)</span> <span class="o">=</span> <span class="n">fetched_publish</span>
+            <span class="c1"># message_job is either a Message class</span>
+            <span class="c1"># or a dict with &#39;message&#39; field which is Message</span>
+            <span class="c1"># which may be empty</span>
+            <span class="c1"># or just a dict which must be sent as a callback directly</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="n">message_job</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;message&#39;</span><span class="p">)</span>
+            <span class="n">predicate</span> <span class="o">=</span> <span class="n">message_job</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;predicate&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">message</span><span class="o">.</span><span class="n">predicate</span>
+            <span class="k">assert</span> <span class="n">predicate</span>
+
+            <span class="c1"># find the subscribers for this predicate</span>
+            <span class="n">subscribers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_subscribers</span><span class="p">(</span><span class="n">predicate</span><span class="p">)</span>
+
+            <span class="c1"># what is worse, multiple delivery or lost messages?</span>
+            <span class="c1"># here we assume lost messages are worse</span>
+            <span class="c1"># given the delivery outbox is just a queue there aren&#39;t many reasons</span>
+            <span class="c1"># for it to fail, real fails will be on the next step - when it&#39;s trivial</span>
+            <span class="c1"># to re-process the single message when other ones will be fine.</span>
+            <span class="c1"># (see DeliverCallbackUseCase)</span>
+            <span class="n">all_OK</span> <span class="o">=</span> <span class="kc">True</span>
+
+            <span class="n">payload</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">if</span> <span class="n">message</span><span class="p">:</span>
+                <span class="n">payload</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="bp">cls</span><span class="o">=</span><span class="n">ser</span><span class="o">.</span><span class="n">MessageJSONEncoder</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">payload</span> <span class="o">=</span> <span class="n">message_job</span>
+
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">subscribers</span><span class="p">:</span>
+                <span class="n">job</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s1">&#39;s&#39;</span><span class="p">:</span> <span class="n">s</span><span class="p">,</span>  <span class="c1"># subscribed callback url</span>
+                    <span class="s1">&#39;payload&#39;</span><span class="p">:</span> <span class="n">payload</span>  <span class="c1"># the payload to be sent to the callback</span>
+                <span class="p">}</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Sceduling notification of </span><span class="se">\n</span><span class="s2">[</span><span class="si">%s</span><span class="s2">] with payload </span><span class="se">\n</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">payload</span><span class="p">)</span>
+                <span class="n">status</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">delivery_outbox</span><span class="o">.</span><span class="n">post_job</span><span class="p">(</span><span class="n">job</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">status</span><span class="p">:</span>
+                    <span class="n">all_OK</span> <span class="o">=</span> <span class="kc">False</span>
+
+            <span class="k">if</span> <span class="n">all_OK</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">notifications</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">publish_msg_id</span><span class="p">)</span>
+                <span class="k">return</span> <span class="kc">True</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">_get_subscribers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">predicate</span><span class="p">):</span>
+        <span class="n">subscribers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subscriptions</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">predicate</span><span class="p">,</span> <span class="n">layered</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">subscribers</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Nobody to notify about the message </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">predicate</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">subscribers</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Commonwealth of Australia.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.2.0.
+    </div>
+  </body>
+</html>

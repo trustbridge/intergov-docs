@@ -1,0 +1,111 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>intergov.use_cases.reject_pending_message &#8212; Intergov Ledger 0.1.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for intergov.use_cases.reject_pending_message</h1><div class="highlight"><pre>
+<div class="viewcode-block" id="RejectPendingMessageUseCase"><a class="viewcode-back" href="../../../outbound.html#intergov.use_cases.reject_pending_message.RejectPendingMessageUseCase">[docs]</a><span></span><span class="k">class</span> <span class="nc">RejectPendingMessageUseCase</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Gets a single message from rejected message repo</span>
+<span class="sd">    If rejected message payload is valid - has sender, sender_ref fields</span>
+<span class="sd">    updates message metadata by changing status to rejected via message lake repo</span>
+<span class="sd">    update_metadata method</span>
+
+<span class="sd">    Fails if:</span>
+<span class="sd">        1. unable to update message status</span>
+<span class="sd">        2. rejected message payload is invalid</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rejected_message_repo</span><span class="p">,</span> <span class="n">message_lake_repo</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rejected_messages</span> <span class="o">=</span> <span class="n">rejected_message_repo</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">message_lake</span> <span class="o">=</span> <span class="n">message_lake_repo</span>
+
+    <span class="k">def</span> <span class="nf">execute</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">update</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rejected_messages</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">update</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="p">(</span><span class="n">upd_id</span><span class="p">,</span> <span class="n">upd_msg</span><span class="p">)</span> <span class="o">=</span> <span class="n">update</span>
+
+        <span class="n">delta</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;status&#39;</span><span class="p">:</span> <span class="s1">&#39;rejected&#39;</span><span class="p">}</span>
+
+        <span class="c1"># right now only reason of failure is a critical error</span>
+        <span class="c1"># NOTE: we need to decide what to do if message not found</span>
+        <span class="c1"># is it success or critical failure</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">message_lake</span><span class="o">.</span><span class="n">update_metadata</span><span class="p">(</span><span class="n">upd_msg</span><span class="o">.</span><span class="n">sender</span><span class="p">,</span> <span class="n">upd_msg</span><span class="o">.</span><span class="n">sender_ref</span><span class="p">,</span> <span class="n">delta</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="n">f</span><span class="s2">&quot;Unable to update message status. Reason: </span><span class="si">{e}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="kn">from</span> <span class="nn">e</span>
+
+        <span class="n">deleted</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rejected_messages</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">upd_id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">deleted</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Commonwealth of Australia.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.2.0.
+    </div>
+  </body>
+</html>

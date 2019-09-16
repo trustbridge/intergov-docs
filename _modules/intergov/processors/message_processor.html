@@ -1,0 +1,176 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>intergov.processors.message_processor &#8212; Intergov Ledger 0.1.0 documentation</title>
+    <link rel="stylesheet" href="../../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="../../../" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for intergov.processors.message_processor</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">time</span>
+
+<span class="kn">from</span> <span class="nn">intergov.repos.bc_inbox.elasticmq.elasticmqrepo</span> <span class="k">import</span> <span class="n">BCInboxRepo</span>
+<span class="kn">from</span> <span class="nn">intergov.conf</span> <span class="k">import</span> <span class="n">env</span><span class="p">,</span> <span class="n">env_s3_config</span><span class="p">,</span> <span class="n">env_queue_config</span><span class="p">,</span> <span class="n">env_postgres_config</span>
+<span class="kn">from</span> <span class="nn">intergov.repos.api_outbox</span> <span class="k">import</span> <span class="n">ApiOutboxRepo</span>
+<span class="kn">from</span> <span class="nn">intergov.repos.message_lake</span> <span class="k">import</span> <span class="n">MessageLakeRepo</span>
+<span class="kn">from</span> <span class="nn">intergov.repos.object_acl</span> <span class="k">import</span> <span class="n">ObjectACLRepo</span>
+<span class="kn">from</span> <span class="nn">intergov.repos.object_retrieval</span> <span class="k">import</span> <span class="n">ObjectRetrievalRepo</span>
+<span class="kn">from</span> <span class="nn">intergov.repos.notifications</span> <span class="k">import</span> <span class="n">NotificationsRepo</span>
+<span class="kn">from</span> <span class="nn">intergov.use_cases</span> <span class="k">import</span> <span class="n">ProcessMessageUseCase</span>
+
+<span class="kn">from</span> <span class="nn">intergov.loggers</span> <span class="k">import</span> <span class="n">logging</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s1">&#39;message_processor&#39;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="InboundMessageProcessor"><a class="viewcode-back" href="../../../platform.html#intergov.processors.message_processor.InboundMessageProcessor">[docs]</a><span class="k">class</span> <span class="nc">InboundMessageProcessor</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Efficiently iterate over the ProcessMessageUseCase.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_prepare_bc_inbox_repo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">):</span>
+        <span class="n">bc_inbox_repo_conf</span> <span class="o">=</span> <span class="n">env_queue_config</span><span class="p">(</span><span class="s1">&#39;PROC_BC_INBOX&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">conf</span><span class="p">:</span>
+            <span class="n">bc_inbox_repo_conf</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">conf</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bc_inbox_repo</span> <span class="o">=</span> <span class="n">BCInboxRepo</span><span class="p">(</span><span class="n">bc_inbox_repo_conf</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_prepare_message_lake_repo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">):</span>
+        <span class="n">message_lake_repo_conf</span> <span class="o">=</span> <span class="n">env_s3_config</span><span class="p">(</span><span class="s1">&#39;PROC_MESSAGE_LAKE&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">conf</span><span class="p">:</span>
+            <span class="n">message_lake_repo_conf</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">conf</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">message_lake_repo</span> <span class="o">=</span> <span class="n">MessageLakeRepo</span><span class="p">(</span><span class="n">message_lake_repo_conf</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_prepare_object_acl_repo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">):</span>
+        <span class="n">object_acl_repo_conf</span> <span class="o">=</span> <span class="n">env_s3_config</span><span class="p">(</span><span class="s1">&#39;PROC_OBJECT_ACL_REPO&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">conf</span><span class="p">:</span>
+            <span class="n">object_acl_repo_conf</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">conf</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">object_acl_repo</span> <span class="o">=</span> <span class="n">ObjectACLRepo</span><span class="p">(</span><span class="n">object_acl_repo_conf</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_prepare_object_retrieval_repo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">):</span>
+        <span class="n">object_retrieval_repo_conf</span> <span class="o">=</span> <span class="n">env_queue_config</span><span class="p">(</span><span class="s1">&#39;PROC_OBJ_RETR_REPO&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">conf</span><span class="p">:</span>
+            <span class="n">object_retrieval_repo_conf</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">conf</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">object_retrieval_repo</span> <span class="o">=</span> <span class="n">ObjectRetrievalRepo</span><span class="p">(</span><span class="n">object_retrieval_repo_conf</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_prepare_notifications_repo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">):</span>
+        <span class="n">notifications_repo_conf</span> <span class="o">=</span> <span class="n">env_queue_config</span><span class="p">(</span><span class="s1">&#39;PROC_OBJ_OUTBOX_REPO&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">conf</span><span class="p">:</span>
+            <span class="n">notifications_repo_conf</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">conf</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">notifications_repo</span> <span class="o">=</span> <span class="n">NotificationsRepo</span><span class="p">(</span><span class="n">notifications_repo_conf</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_prepare_blockchain_outbox_repo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">conf</span><span class="p">):</span>
+        <span class="n">blockchain_outbox_repo_conf</span> <span class="o">=</span> <span class="n">env_postgres_config</span><span class="p">(</span><span class="s1">&#39;PROC_BCH_OUTBOX_REPO&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">conf</span><span class="p">:</span>
+            <span class="n">blockchain_outbox_repo_conf</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">conf</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">blockchain_outbox_repo</span> <span class="o">=</span> <span class="n">ApiOutboxRepo</span><span class="p">(</span><span class="n">blockchain_outbox_repo_conf</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_prepare_use_cases</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">uc</span> <span class="o">=</span> <span class="n">ProcessMessageUseCase</span><span class="p">(</span>
+            <span class="n">country</span><span class="o">=</span><span class="n">env</span><span class="p">(</span><span class="s1">&#39;IGL_COUNTRY&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s1">&#39;AU&#39;</span><span class="p">),</span>
+            <span class="n">bc_inbox_repo</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">bc_inbox_repo</span><span class="p">,</span>
+            <span class="n">message_lake_repo</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">message_lake_repo</span><span class="p">,</span>
+            <span class="n">object_acl_repo</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">object_acl_repo</span><span class="p">,</span>
+            <span class="n">object_retreval_repo</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">object_retrieval_repo</span><span class="p">,</span>
+            <span class="n">notifications_repo</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">notifications_repo</span><span class="p">,</span>
+            <span class="n">blockchain_outbox_repo</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">blockchain_outbox_repo</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bc_inbox_repo_conf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">message_lake_repo_conf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">object_acl_repo_conf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">object_retrieval_repo_conf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">notifications_repo_conf</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">blockchain_outbox_repo_conf</span><span class="o">=</span><span class="kc">None</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_bc_inbox_repo</span><span class="p">(</span><span class="n">bc_inbox_repo_conf</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_message_lake_repo</span><span class="p">(</span><span class="n">message_lake_repo_conf</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_object_acl_repo</span><span class="p">(</span><span class="n">object_acl_repo_conf</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_object_retrieval_repo</span><span class="p">(</span><span class="n">object_retrieval_repo_conf</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_notifications_repo</span><span class="p">(</span><span class="n">notifications_repo_conf</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_blockchain_outbox_repo</span><span class="p">(</span><span class="n">blockchain_outbox_repo_conf</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_use_cases</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting the inbound message processor&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">__next__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">uc</span><span class="o">.</span><span class="n">execute</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;__main__&#39;</span><span class="p">:</span>   <span class="c1"># pragma: no cover</span>
+    <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">InboundMessageProcessor</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="nav-item nav-item-0"><a href="../../../index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Commonwealth of Australia.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.2.0.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,315 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Event Subsystem &#8212; Intergov Ledger 0.1.0 documentation</title>
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Outbound Message Flow" href="outbound.html" />
+    <link rel="prev" title="Public Interfaces" href="public_apis.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="outbound.html" title="Outbound Message Flow"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="public_apis.html" title="Public Interfaces"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="event-subsystem">
+<h1>Event Subsystem<a class="headerlink" href="#event-subsystem" title="Permalink to this headline">¶</a></h1>
+<p>The event subsystem provides a mechanism
+that allows 3rd parties to remain well informed
+about the state of the system
+without having to poll it.</p>
+<p>It is entirely optional,
+the system should work in a “fire and forget” manner.
+This means that the B2G interactions
+do not require further action
+on behalf of the Business.
+However, because the system operates with <em>eventual consistency</em>
+and <em>best effort semantics</em>
+(i.e. not <em>guaranteed delivery semantics</em>)
+the event subststem may help applications
+orchestrate their distributed processes.</p>
+<div class="section" id="subscriptions-api">
+<h2>Subscriptions API<a class="headerlink" href="#subscriptions-api" title="Permalink to this headline">¶</a></h2>
+<p>This is basically an implementation of WebSub
+<a class="reference external" href="https://en.wikipedia.org/wiki/WebSub">https://en.wikipedia.org/wiki/WebSub</a>.
+It allows Message API clients to discover
+(be notified of) message changes without polling.</p>
+<p>The implementation is <cite>/intergov/apis/subscriptions_api</cite></p>
+<p>The business logic is in these classes:</p>
+<ul class="simple">
+<li><p>SubscriptionDeregistrationUseCase
+(in <cite>/intergov/use_cases/subscription_deregister.py</cite>)</p></li>
+<li><p>SubscriptionRegisterUseCase
+(in <cite>/intergov/use_cases/subscription_register.py</cite>)</p></li>
+</ul>
+<p class="plantuml">
+<img src="_images/plantuml-dcde1c05d343d3806654f2f74078a3e0224ca89b.png" alt="&#64;startuml
+component subscriptions_api
+usecase subscription_register [
+   Register
+   Subscription
+]
+usecase subscription_deregister [
+   De-Register
+   Subscription
+]
+database subscriptions [
+   Subscriptions
+]
+boundary post [
+   post
+   subscription
+]
+boundary delete [
+   delete
+   subscription
+]
+subscriptions_api -- subscription_deregister
+subscriptions_api -- subscription_register
+subscription_register -- post
+subscription_deregister -- delete
+post -- subscriptions
+delete -- subscriptions
+&#64;enduml"/>
+</p>
+<div class="section" id="callbacks-spreader">
+<h3>Callbacks Spreader<a class="headerlink" href="#callbacks-spreader" title="Permalink to this headline">¶</a></h3>
+<p>This is part of the WebSub infrastructure
+that processes each event once.</p>
+<dl class="class">
+<dt id="intergov.processors.callbacks_spreader.CallbacksSpreaderProcessor">
+<em class="property">class </em><code class="sig-prename descclassname">intergov.processors.callbacks_spreader.</code><code class="sig-name descname">CallbacksSpreaderProcessor</code><span class="sig-paren">(</span><em class="sig-param">notifications_repo_conf=None</em>, <em class="sig-param">delivery_outbox_repo_conf=None</em>, <em class="sig-param">subscriptions_repo_conf=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/intergov/processors/callbacks_spreader.html#CallbacksSpreaderProcessor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#intergov.processors.callbacks_spreader.CallbacksSpreaderProcessor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert each incoming message to set of messages containing (websub_url, message)
+so they may be sent and fail separately</p>
+</dd></dl>
+
+<p class="plantuml">
+<img src="_images/plantuml-f2447fce457d4a747a341eb5e9ab200bf74a0f04.png" alt="component callback_spreader [
+   Callbacks
+   Spreader
+]
+usecase uc_dispatch [
+   Dispatch Message
+   To Subscriber
+]
+callback_spreader -- uc_dispatch
+database delivery_outbox [
+   delivery
+   outbox
+]
+boundary post_job [
+   post
+   job
+]
+uc_dispatch -- post_job
+post_job -- delivery_outbox
+
+database notifications [
+   notifications
+]
+boundary get_event [
+   get
+   event
+]
+uc_dispatch -- get_event
+get_event -- notifications
+boundary delete_event [
+   delete
+   event
+]
+uc_dispatch -- delete_event
+delete_event -- notifications
+
+database subscriptions [
+   subscriptions
+]
+boundary search_subscriptions [
+   search
+   subscriptions
+]
+uc_dispatch -- search_subscriptions
+search_subscriptions -- subscriptions"/>
+</p>
+<dl class="class">
+<dt id="intergov.use_cases.dispatch_message_to_subscribers.DispatchMessageToSubscribersUseCase">
+<em class="property">class </em><code class="sig-prename descclassname">intergov.use_cases.dispatch_message_to_subscribers.</code><code class="sig-name descname">DispatchMessageToSubscribersUseCase</code><span class="sig-paren">(</span><em class="sig-param">notifications_repo</em>, <em class="sig-param">delivery_outbox_repo</em>, <em class="sig-param">subscriptions_repo</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/intergov/use_cases/dispatch_message_to_subscribers.html#DispatchMessageToSubscribersUseCase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#intergov.use_cases.dispatch_message_to_subscribers.DispatchMessageToSubscribersUseCase" title="Permalink to this definition">¶</a></dt>
+<dd><p>Used by the callbacks spreader worker.</p>
+<p>This is the “fan-out” part of the WebSub,
+where each event dispatched 
+to all the relevant subscribers.
+For each event (notification),
+it looks-up the relevant subscribers
+and dispatches a callback task
+so that they will be notified.</p>
+<p>There is a downstream delivery processor
+that actually makes the callback,
+it is insulated from this process
+by the delivery outbox message queue.</p>
+<p>Note: In this application
+the subscription signature 
+is based on the message predicate.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="callback-deliver">
+<h3>Callback Deliver<a class="headerlink" href="#callback-deliver" title="Permalink to this headline">¶</a></h3>
+<p>This is the part of the WebSub infrastructure
+that processes each message once
+for every relevant subscriber.
+It deffers to an external message queue
+to implement best-effort delivery semantics.</p>
+<dl class="class">
+<dt id="intergov.processors.callback_deliver.CallbacksDeliveryProcessor">
+<em class="property">class </em><code class="sig-prename descclassname">intergov.processors.callback_deliver.</code><code class="sig-name descname">CallbacksDeliveryProcessor</code><span class="sig-paren">(</span><em class="sig-param">delivery_outbox_repo_conf=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/intergov/processors/callback_deliver.html#CallbacksDeliveryProcessor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#intergov.processors.callback_deliver.CallbacksDeliveryProcessor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Iterate over the DeliverCallbackUseCase.</p>
+</dd></dl>
+
+<p class="plantuml">
+<img src="_images/plantuml-d12a8b9ccd1c619481fd7bbf3bf630f4dceb1160.png" alt="&#64;startuml
+component cbproc [
+   Callbacks
+   Delivery
+   Processor
+]
+usecase uc_deliver [
+   Deliver
+   Callback
+]
+cbproc -- uc_deliver
+database delivery_outbox [
+   delivery
+   outbox
+]
+boundary get_job [
+   get
+   job
+]
+uc_deliver -- get_job
+get_job -- delivery_outbox
+boundary delete_job [
+   delete
+   job
+]
+uc_deliver -- delete_job
+delete_job -- delivery_outbox
+boundary post [
+   POST
+]
+uc_deliver -- post
+cloud subscriber
+post -- subscriber
+&#64;enduml"/>
+</p>
+<dl class="class">
+<dt id="intergov.use_cases.deliver_callback.DeliverCallbackUseCase">
+<em class="property">class </em><code class="sig-prename descclassname">intergov.use_cases.deliver_callback.</code><code class="sig-name descname">DeliverCallbackUseCase</code><span class="sig-paren">(</span><em class="sig-param">delivery_outbox_repo</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/intergov/use_cases/deliver_callback.html#DeliverCallbackUseCase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#intergov.use_cases.deliver_callback.DeliverCallbackUseCase" title="Permalink to this definition">¶</a></dt>
+<dd><p>Is used by a callback deliverer worker</p>
+<dl class="simple">
+<dt>Reads queue delivery_outbox_repo consisting of tasks in format:</dt><dd><p>(url, message)</p>
+</dd>
+</dl>
+<p>Then such message should be either sent to this URL and the task is deleted
+or, in case of any error, not to be deleted and to be tried again
+(up to MAX_RETRIES times)</p>
+<p>TODO: rate limits, no more than 100 messages to a single url per 10 seconds?</p>
+</dd></dl>
+
+</div>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Event Subsystem</a><ul>
+<li><a class="reference internal" href="#subscriptions-api">Subscriptions API</a><ul>
+<li><a class="reference internal" href="#callbacks-spreader">Callbacks Spreader</a></li>
+<li><a class="reference internal" href="#callback-deliver">Callback Deliver</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="public_apis.html"
+                        title="previous chapter">Public Interfaces</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="outbound.html"
+                        title="next chapter">Outbound Message Flow</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/events.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="outbound.html" title="Outbound Message Flow"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="public_apis.html" title="Public Interfaces"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Commonwealth of Australia.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.2.0.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,289 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Inbound Message Flow &#8212; Intergov Ledger 0.1.0 documentation</title>
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Platform Services" href="platform.html" />
+    <link rel="prev" title="Outbound Message Flow" href="outbound.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="platform.html" title="Platform Services"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="outbound.html" title="Outbound Message Flow"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="inbound-message-flow">
+<h1>Inbound Message Flow<a class="headerlink" href="#inbound-message-flow" title="Permalink to this headline">¶</a></h1>
+<p>These components are involved in the flow of messages
+from one Government to another.
+Specifically, the receiving side of the equation.</p>
+<div class="section" id="channel-observer">
+<h2>Channel Observer<a class="headerlink" href="#channel-observer" title="Permalink to this headline">¶</a></h2>
+<p>There is one of these workers for each distinct channel.</p>
+<p>They are like listening posts.
+They observe every message on the channel,
+filter out the ones that originate from this country,
+and send the rest to the Private Message API for processing.</p>
+<p>This way the rest of the system can know about new messages,
+and does not need to know about the configuration of channels.</p>
+<p class="plantuml">
+<img src="_images/plantuml-61e999ee2c2206d6d53753d1f7c82f1a64bf3fc7.png" alt="&#64;startuml
+component observer [
+   Observer
+]
+usecase relay [
+   Relay
+   Inbound
+   Messages
+]
+observer -- relay
+queue channel
+relay -- channel
+component pmapi [
+   Private
+   Message
+   API
+]
+boundary post [
+   POST
+   newly received
+   message
+]
+relay -- post
+post --pmapi
+&#64;enduml"/>
+</p>
+</div>
+<div class="section" id="private-message-api">
+<h2>Private Message API<a class="headerlink" href="#private-message-api" title="Permalink to this headline">¶</a></h2>
+<p>When a message is sent by another country to this one,
+the Channel Observer component
+associated with that channel
+uses this private API to process the mesaages.</p>
+<p>This is where many channels funnel into the one system.</p>
+<p>The implementation is <cite>/intergov/apis/message_rx_api</cite></p>
+<p>The specific business logic code is in the class
+<strong>EnqueueMessageUseCase</strong> in the file
+<cite>/intergov/use_cases/enqueue_messages.py</cite>.</p>
+<p class="plantuml">
+<img src="_images/plantuml-bb02f512428d59458f954f2d258755b06ca381f1.png" alt="component rx_api [
+   Private
+   Message
+   Api
+]
+usecase enqueue_message [
+   Enqueue
+   Message
+]
+boundary post [
+   post
+   message
+]
+database bc_inbox [
+   bc
+   inbox
+]
+rx_api -- enqueue_message
+enqueue_message -- post
+post -- bc_inbox"/>
+</p>
+</div>
+<div class="section" id="object-spider">
+<h2>Object Spider<a class="headerlink" href="#object-spider" title="Permalink to this headline">¶</a></h2>
+<p>This worker process is a “spider”
+in the same sense of the word as used to describe
+the things that search engines use
+to maintain their index of web pages.</p>
+<p>Unlike a search index spider
+this does not fetch web pages.
+It fetches the objects
+(files, documents, etc)
+that are the subject of G2G messages.</p>
+<p>This component assumes
+the other Government is providing
+an interface that conforms
+with the edi3 Document API spec.</p>
+<dl class="class">
+<dt id="intergov.processors.obj_spider.ObjectSpider">
+<em class="property">class </em><code class="sig-prename descclassname">intergov.processors.obj_spider.</code><code class="sig-name descname">ObjectSpider</code><a class="reference internal" href="_modules/intergov/processors/obj_spider.html#ObjectSpider"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#intergov.processors.obj_spider.ObjectSpider" title="Permalink to this definition">¶</a></dt>
+<dd><p>Iterate over the RetrieveAndStoreForeignDocumentUseCase.</p>
+</dd></dl>
+
+<p class="plantuml">
+<img src="_images/plantuml-e2463eae2f7d1c5222a1856b5c0ab824457eea04.png" alt="&#64;startuml
+component spider [
+   Object
+   Spider
+]
+cloud internet
+usecase uc [
+   Retrieve And Store
+   Foreign Documents
+]
+spider -- uc
+uc -- internet
+database obj_lake [
+   object
+   lake
+]
+boundary lake_exists [
+   check if
+   object
+   exists
+]
+uc -- lake_exists
+lake_exists -- obj_lake
+boundary lake_store [
+   store
+   object
+]
+uc -- lake_store
+lake_store -- obj_lake
+database obj_acl [
+   object
+   ACL
+]
+boundary allow_access [
+   allow
+   access
+]
+uc -- allow_access
+allow_access -- obj_acl
+database ret [
+   object
+   retrieval
+]
+boundary ret_get_job [
+   get
+   job
+]
+uc -- ret_get_job
+ret_get_job -- ret
+boundary ret_del_job [
+   delete
+   job
+]
+uc -- ret_del_job
+ret_del_job -- ret
+boundary ret_post_job [
+   post
+   job
+]
+uc -- ret_post_job
+ret_post_job -- ret
+&#64;enduml"/>
+</p>
+<dl class="class">
+<dt id="intergov.use_cases.retrieve_and_store_foreign_documents.RetrieveAndStoreForeignDocumentsUseCase">
+<em class="property">class </em><code class="sig-prename descclassname">intergov.use_cases.retrieve_and_store_foreign_documents.</code><code class="sig-name descname">RetrieveAndStoreForeignDocumentsUseCase</code><span class="sig-paren">(</span><em class="sig-param">country</em>, <em class="sig-param">object_retrieval_repo</em>, <em class="sig-param">object_lake_repo</em>, <em class="sig-param">object_acl_repo</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/intergov/use_cases/retrieve_and_store_foreign_documents.html#RetrieveAndStoreForeignDocumentsUseCase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#intergov.use_cases.retrieve_and_store_foreign_documents.RetrieveAndStoreForeignDocumentsUseCase" title="Permalink to this definition">¶</a></dt>
+<dd><p>Processes single request from the queue to download
+some remote document.</p>
+<p>The process is recursive.
+If an object has sub-objects,
+add more jobs to download them later.</p>
+<div class="admonition-note admonition">
+<p class="admonition-title">Note</p>
+<ul class="simple">
+<li><p>returns None if the object has already been downloaded</p></li>
+<li><p>returns True in case of success</p></li>
+<li><p>raises exceptions for errors</p></li>
+</ul>
+</div>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Inbound Message Flow</a><ul>
+<li><a class="reference internal" href="#channel-observer">Channel Observer</a></li>
+<li><a class="reference internal" href="#private-message-api">Private Message API</a></li>
+<li><a class="reference internal" href="#object-spider">Object Spider</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="outbound.html"
+                        title="previous chapter">Outbound Message Flow</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="platform.html"
+                        title="next chapter">Platform Services</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/inbound.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="platform.html" title="Platform Services"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="outbound.html" title="Outbound Message Flow"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Commonwealth of Australia.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.2.0.
+    </div>
+  </body>
+</html>

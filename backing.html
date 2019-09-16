@@ -1,0 +1,198 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Backing Services &#8212; Intergov Ledger 0.1.0 documentation</title>
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Multi-Channel Architecture" href="channels.html" />
+    <link rel="prev" title="Platform Services" href="platform.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="channels.html" title="Multi-Channel Architecture"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="platform.html" title="Platform Services"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="backing-services">
+<h1>Backing Services<a class="headerlink" href="#backing-services" title="Permalink to this headline">¶</a></h1>
+<p>The various backing services have to be implemented somehow.
+For the purpose of this POC implementation,
+we are using three services
+(Postgresql, ElasticMQ and Minio).
+These were chosen because they are convenient to run locally
+(see the docker compose configurations in the github repository)
+They also have directly compatible cloud-hosted alternatives,
+which greatly simplifies the “cloud engineering”
+required to run the service in a a highly scalable
+and highly available way.</p>
+<p class="plantuml">
+<img src="_images/plantuml-47c5d59ee9f1c60b6e08de7e48c673c7d2effbec.png" alt="&#64;startuml
+artifact Postgresql {
+   database subscriptions
+}
+artifact Minio {
+   database message_lake [
+      message
+      lake
+   ]
+   database object_lake [
+      object
+      lake
+   ]
+   database object_acl [
+      object
+      ACL
+   ]
+}
+artifact ElasticMQ {
+   database notifications
+   database bc_inbox [
+      channel
+      inbox
+   ]
+   database ch_outbox [
+      channel
+      outbox
+   ]
+   database obj_ret [
+      object
+      retrieval
+   ]
+   database msg_upd [
+      message
+      updates
+   ]
+   database delivery_outbox [
+      delivery
+      outbox
+   ]
+   database reject [
+      rejected
+      messages
+   ]
+   database pend [
+      pending
+      deliveries
+   ]
+}
+&#64;enduml"/>
+</p>
+<p>What matters about these backing services
+is that they are hidden behind abstractions.
+These are shown as bountaries
+in the API and worker process diagrams
+(e.g. object_lake.get_body, object_lake.post_file,
+object_acl.search, object_acl.allow_access).</p>
+<p class="plantuml">
+<img src="_images/plantuml-8436646d0c7f5149cd2cc53ceba2771886685d4e.png" alt="&#64;startuml
+component c [
+   component
+]
+usecase uc [
+   use-case
+]
+boundary b [
+   boundary
+]
+database db [
+   backing
+   service
+]
+c -- uc
+uc -- b
+b -- db
+&#64;enduml"/>
+</p>
+<p>These boundaries deal only in objects
+from the domain model,
+i.e. the code in <cite>intergov/domain</cite>.
+That domain code is independent
+of any implementation (backing service).</p>
+<p>This intent of this technical detail
+is to simplify the implementation of backing services
+using whatever technology is most appropriate
+for the country operating the ICL node.</p>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="platform.html"
+                        title="previous chapter">Platform Services</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="channels.html"
+                        title="next chapter">Multi-Channel Architecture</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/backing.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="channels.html" title="Multi-Channel Architecture"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="platform.html" title="Platform Services"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Commonwealth of Australia.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.2.0.
+    </div>
+  </body>
+</html>

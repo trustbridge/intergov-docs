@@ -1,0 +1,353 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Outbound Message Flow &#8212; Intergov Ledger 0.1.0 documentation</title>
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Inbound Message Flow" href="inbound.html" />
+    <link rel="prev" title="Event Subsystem" href="events.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="inbound.html" title="Inbound Message Flow"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="events.html" title="Event Subsystem"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="outbound-message-flow">
+<h1>Outbound Message Flow<a class="headerlink" href="#outbound-message-flow" title="Permalink to this headline">¶</a></h1>
+<p>These components are involved in the flow of messages
+from one Government to another.
+Specifically, the sending side of the equation.</p>
+<div class="section" id="multichannel-router">
+<h2>Multichannel Router<a class="headerlink" href="#multichannel-router" title="Permalink to this headline">¶</a></h2>
+<p>This is a core component.
+It is responsible for routing messages between Governments
+(using the appropriate channel).</p>
+<p>Note: channels abstract over topology, technology and wire protocols.
+This means that countries are free
+to determine bilaterally or multilaterally
+agreeable channels.
+This component will be configured to use the channels
+as per the operating countries agreements.</p>
+<p class="plantuml">
+<img src="_images/plantuml-edcd6375f018de6b6b5214695c596a43e33da651.png" alt="&#64;startuml
+component router [
+   Multi-Channel
+   Router
+]
+usecase uc [
+   Route To
+   Channel
+]
+router -- uc
+queue ch1 [
+   channel 1
+]
+queue ch2 [
+   channel 2
+]
+queue chx [
+   channel ...
+]
+boundary rt [
+   routing
+   table
+]
+uc -- rt
+rt -- ch1
+rt -- ch2
+rt -- chx
+database outbox [
+   delivery
+   outbox
+]
+boundary outbox_patch [
+   patch
+   message
+]
+outbox_patch -- outbox
+router -- outbox_patch
+boundary outbox_get [
+   get
+   message
+]
+router -- outbox_get
+outbox_get -- outbox
+boundary post_pcm [
+   post
+   job
+]
+router -- post_pcm
+database pcm_repo [
+   channel
+   pending
+]
+post_pcm -- pcm_repo
+boundary push_mu [
+   patch
+]
+router -- push_mu
+database mu_repo [
+   delivery
+   status
+]
+push_mu -- mu_repo
+&#64;enduml"/>
+</p>
+<p>This process needs to be slightly more complicated
+than it might seem at first.
+Channels need to be potentially asynchronous.
+For example, with a blockchain channel,
+messages are “written” to the extent of the consensus.
+It’s technically possible for blockchains to fork,
+meaning that the concensus “changes it’s mind”
+about the shared view of history.</p>
+<p>This means that,
+in addition to routing the message to the channel,
+the router must also dispatch a couple of jobs
+(asynchronous processing tasks):</p>
+<ul class="simple">
+<li><p>“Channel Pending” jobs are used keep track of messages
+that may not yet have been sucessfully delivered by the channel.
+Depending on the outcome of channel processing,
+the appropriate steps for processing these messages
+may not yet be known.</p></li>
+<li><p>“Delivery Status” journal is updated
+to keep track of the channel delivery status
+so stakeholder processes can remain appraised
+of important delivery/non-delivery events.</p></li>
+</ul>
+</div>
+<div class="section" id="channel-poller">
+<h2>Channel Poller<a class="headerlink" href="#channel-poller" title="Permalink to this headline">¶</a></h2>
+<p>Not to be confused with the Channel Observer:
+This worker checks on the status of messages
+that have been sent to a channel BY US
+(the other one discovers new messages
+that have been sent on a channel TO US).</p>
+<p class="plantuml">
+<img src="_images/plantuml-37bb1f3dfcd1a439683e1f99d181aedec06a7ea5.png" alt="&#64;startuml
+component worker [
+   Channel
+   Poller
+]
+usecase uc [
+   Check Status of
+   Pending Deliveries
+]
+worker -- uc
+queue channel
+database pending [
+   pending
+   deliveries
+]
+boundary check [
+   check
+   status
+]
+uc -- check
+check -- channel
+boundary get [
+   get
+]
+uc -- get
+get -- pending
+boundary del [
+   delete
+]
+uc --del
+del -- pending
+database updates [
+   message
+   updates
+]
+boundary post [
+   post
+   job
+]
+uc -- post
+post -- updates
+&#64;enduml"/>
+</p>
+<p>This worker deletes jobs from the “pending messages” queue
+when an change is detected (by polling the channel).
+If no change is detected,
+the job is not deleted from the pending messages queue.
+But neither is it returned to the queue -
+the worker holds a lock on the job until it goes stale.
+This way, the worker polls the queue sequentially
+at most once per task timeout period configured on the queue.</p>
+<p>It’s a bit of a cheap trick but it seems to work quite well.</p>
+</div>
+<div class="section" id="rejected-message-processor">
+<h2>Rejected Message Processor<a class="headerlink" href="#rejected-message-processor" title="Permalink to this headline">¶</a></h2>
+<p>When the multi channel router tries to send a message to a channel,
+there are various reasons why the attempt might fail.
+Because the process is asynchronous,
+the sending component (multi channel router)
+does not wait to know the status,
+it just carries on sending.</p>
+<p>That is why the channel poller component
+manages data in the “pending deliveries” database
+and posts update jobs to the “message updates” queue.
+Thus, message updates queue contains jobs to be done
+updating the delivery status of messages.</p>
+<p>The task of this component
+(rejected message processor)
+is to process those jobs.</p>
+<dl class="class">
+<dt id="intergov.processors.rejected_status_updater.RejectedStatusUpdater">
+<em class="property">class </em><code class="sig-prename descclassname">intergov.processors.rejected_status_updater.</code><code class="sig-name descname">RejectedStatusUpdater</code><span class="sig-paren">(</span><em class="sig-param">rejected_message_repo_conf=None</em>, <em class="sig-param">message_lake_repo_conf=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/intergov/processors/rejected_status_updater.html#RejectedStatusUpdater"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#intergov.processors.rejected_status_updater.RejectedStatusUpdater" title="Permalink to this definition">¶</a></dt>
+<dd><p>Iterate over RejectPendingMessageUseCase</p>
+</dd></dl>
+
+<p class="plantuml">
+<img src="_images/plantuml-9430b19c536825948e64ba2d9071d37dfd809cf4.png" alt="&#64;startuml
+component rsu [
+   Rejected
+   Message
+   Processor
+]
+usecase uc [
+   Process
+   Rejected
+   Message
+]
+rsu -- uc
+boundary umd [
+   update
+   metadata
+]
+uc -- umd
+database ml [
+   message
+   lake
+]
+umd -- ml
+boundary get [
+   get
+]
+uc -- get
+boundary delete [
+   delete
+]
+uc -- delete
+database rm [
+   rejected
+   messages
+]
+get -- rm
+delete -- rm
+&#64;enduml"/>
+</p>
+<dl class="class">
+<dt id="intergov.use_cases.reject_pending_message.RejectPendingMessageUseCase">
+<em class="property">class </em><code class="sig-prename descclassname">intergov.use_cases.reject_pending_message.</code><code class="sig-name descname">RejectPendingMessageUseCase</code><span class="sig-paren">(</span><em class="sig-param">rejected_message_repo</em>, <em class="sig-param">message_lake_repo</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/intergov/use_cases/reject_pending_message.html#RejectPendingMessageUseCase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#intergov.use_cases.reject_pending_message.RejectPendingMessageUseCase" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets a single message from rejected message repo
+If rejected message payload is valid - has sender, sender_ref fields
+updates message metadata by changing status to rejected via message lake repo
+update_metadata method</p>
+<dl class="simple">
+<dt>Fails if:</dt><dd><ol class="arabic simple">
+<li><p>unable to update message status</p></li>
+<li><p>rejected message payload is invalid</p></li>
+</ol>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Outbound Message Flow</a><ul>
+<li><a class="reference internal" href="#multichannel-router">Multichannel Router</a></li>
+<li><a class="reference internal" href="#channel-poller">Channel Poller</a></li>
+<li><a class="reference internal" href="#rejected-message-processor">Rejected Message Processor</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="events.html"
+                        title="previous chapter">Event Subsystem</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="inbound.html"
+                        title="next chapter">Inbound Message Flow</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/outbound.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="inbound.html" title="Inbound Message Flow"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="events.html" title="Event Subsystem"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Commonwealth of Australia.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.2.0.
+    </div>
+  </body>
+</html>

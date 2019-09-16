@@ -1,0 +1,174 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Purpose &#8212; Intergov Ledger 0.1.0 documentation</title>
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Public Interfaces" href="public_apis.html" />
+    <link rel="prev" title="Intergov Ledger" href="index.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="public_apis.html" title="Public Interfaces"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Intergov Ledger"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="purpose">
+<h1>Purpose<a class="headerlink" href="#purpose" title="Permalink to this headline">¶</a></h1>
+<p>The TrustBridge InterGov codebase is
+a Proof Of Concept (POC) implementation
+of the edi3 Inter Customs Ledger Specification.</p>
+<div class="section" id="prototype-edi3-standards">
+<h2>Prototype edi3 standards<a class="headerlink" href="#prototype-edi3-standards" title="Permalink to this headline">¶</a></h2>
+<p>See <a class="reference external" href="https://edi3.org/icl/">https://edi3.org/icl/</a>
+for details of the interfaces
+that are implemented here.</p>
+<p>This software is organised using a microservice architecture.
+The file <strong>DEPLOYMENT.rst</strong> contains instructions
+for running these components together in a local workstation.</p>
+<p>There are three basic types of deployable component:</p>
+<ul class="simple">
+<li><p>Microservices, that provide REST web services
+and depend on statefull backing services.</p></li>
+<li><p>Backing Services, which are responsible for shared state
+between API Microservices and Worker Processes.</p></li>
+<li><p>Worker Processes, which perform asynchronous tasks.</p></li>
+</ul>
+<p>A very high level description of the design looks like this;
+Each country operates a suite of services,
+that provides the following types of integration surface:</p>
+<ul class="simple">
+<li><p>Government to Government (G2G) “channels”,
+These may use distributed ledger technology,
+but the details are hidden behind a “Channel API”.</p></li>
+<li><p>Regulated Community APIs.
+These are used by members of the regulated community
+to interact with their Government (B2G/G2B).
+These interactions are are either direct with the API
+or indirect, through some commuity systems and identity provider.</p></li>
+<li><p>The Document API. This is accessed by the regulated community,
+but also (as policy allows) by the counterparty
+of associated messages on the G2G channels.
+This also implies the use of an identity provider.</p></li>
+</ul>
+</div>
+<div class="section" id="support-the-un-process">
+<h2>Support the UN process<a class="headerlink" href="#support-the-un-process" title="Permalink to this headline">¶</a></h2>
+<p>The business case and background of the edi3 work is published at <a class="reference external" href="https://uncefact.unece.org/display/uncefactpublic/Cross+border+Inter-ledger+exchange+for+Preferential+CoO+using+Blockchain">https://uncefact.unece.org/display/uncefactpublic/Cross+border+Inter-ledger+exchange+for+Preferential+CoO+using+Blockchain</a></p>
+</div>
+<div class="section" id="open-source-reference-implementation">
+<h2>Open Source Reference Implementation<a class="headerlink" href="#open-source-reference-implementation" title="Permalink to this headline">¶</a></h2>
+<p>The purpose of the POC
+is to use a real working system
+to evaluate the edi3 specification design decisions.
+We believe this will lead to a superior design
+than just developing the specifications on a theoretical basis,
+before trying to apply them.</p>
+<p>This implementation is tracking the specifications
+on the edi3 web site.
+As the specifications change,
+we intend to modify this software to keep up.
+This software will remain a POC status
+as long as the specifications are considered a working draft,
+however, the software microservice architecture
+should support future large scale deployment
+and long term maintainability.</p>
+<p>The status of the software will be updated to BETA
+when it is considered appropriate for pilot implementation.
+In the meantime, contributions are welcome
+at <a class="reference external" href="https://github.com/trustbridge">https://github.com/trustbridge</a></p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Purpose</a><ul>
+<li><a class="reference internal" href="#prototype-edi3-standards">Prototype edi3 standards</a></li>
+<li><a class="reference internal" href="#support-the-un-process">Support the UN process</a></li>
+<li><a class="reference internal" href="#open-source-reference-implementation">Open Source Reference Implementation</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="index.html"
+                        title="previous chapter">Intergov Ledger</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="public_apis.html"
+                        title="next chapter">Public Interfaces</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/purpose.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="public_apis.html" title="Public Interfaces"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Intergov Ledger"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Commonwealth of Australia.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.2.0.
+    </div>
+  </body>
+</html>

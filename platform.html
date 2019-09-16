@@ -1,0 +1,296 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Platform Services &#8212; Intergov Ledger 0.1.0 documentation</title>
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Backing Services" href="backing.html" />
+    <link rel="prev" title="Inbound Message Flow" href="inbound.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="backing.html" title="Backing Services"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="inbound.html" title="Inbound Message Flow"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="platform-services">
+<h1>Platform Services<a class="headerlink" href="#platform-services" title="Permalink to this headline">¶</a></h1>
+<p>These components are involved in message processing
+regardless of the origin or destination of the message.</p>
+<div class="section" id="inbound-message-processor">
+<h2>Inbound Message Processor<a class="headerlink" href="#inbound-message-processor" title="Permalink to this headline">¶</a></h2>
+<p>This worker processes new messages
+regardless of if they came from a B2G route
+(i.e. Public Message API)
+or a G2G route
+(i.e. from a G2G Channel).</p>
+<p>The code in <em>/intergov/processors/message_processor/</em>
+instantiates and runs an <strong>InboundMessageProcessor</strong>.</p>
+<dl class="class">
+<dt id="intergov.processors.message_processor.InboundMessageProcessor">
+<em class="property">class </em><code class="sig-prename descclassname">intergov.processors.message_processor.</code><code class="sig-name descname">InboundMessageProcessor</code><span class="sig-paren">(</span><em class="sig-param">bc_inbox_repo_conf=None</em>, <em class="sig-param">message_lake_repo_conf=None</em>, <em class="sig-param">object_acl_repo_conf=None</em>, <em class="sig-param">object_retrieval_repo_conf=None</em>, <em class="sig-param">notifications_repo_conf=None</em>, <em class="sig-param">blockchain_outbox_repo_conf=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/intergov/processors/message_processor.html#InboundMessageProcessor"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#intergov.processors.message_processor.InboundMessageProcessor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Efficiently iterate over the ProcessMessageUseCase.</p>
+</dd></dl>
+
+<p class="plantuml">
+<img src="_images/plantuml-890b6ed8f39f3fd256a4171a8ffc2dbbe520f657.png" alt="&#64;startuml
+component imp [
+   Inbound
+   Message
+   Processor
+]
+usecase pmuc [
+   Process
+   Message
+]
+imp -- pmuc
+boundary post_message_lake [
+   post
+   message
+]
+pmuc -- post_message_lake
+database message_lake [
+   message
+   lake
+]
+post_message_lake -- message_lake
+
+boundary post_message_acl [
+   post
+   message
+]
+pmuc -- post_message_acl
+database object_acl_repo [
+   object
+   ACL
+]
+post_message_acl -- object_acl_repo
+
+boundary post_message_channel_inbox [
+   post
+   message
+]
+pmuc -- post_message_channel_inbox
+database bc_inbox_repo [
+   channel
+   inbox
+]
+post_message_channel_inbox -- bc_inbox_repo
+
+
+boundary post_job_orr [
+   post
+   job
+]
+pmuc -- post_job_orr
+database object_retreval_repo [
+   object
+   retreval
+]
+post_job_orr -- object_retreval_repo
+
+boundary post_message_notifications [
+   post
+   message
+]
+pmuc -- post_message_notifications
+database notifications_repo [
+   notifications
+]
+post_message_notifications -- notifications_repo
+
+boundary post_channel_outbox [
+   post
+   message
+]
+pmuc -- post_channel_outbox
+database blockchain_outbox [
+   channel
+   outbox
+]
+post_channel_outbox -- blockchain_outbox
+&#64;enduml"/>
+</p>
+<dl class="class">
+<dt id="intergov.use_cases.ProcessMessageUseCase">
+<em class="property">class </em><code class="sig-prename descclassname">intergov.use_cases.</code><code class="sig-name descname">ProcessMessageUseCase</code><span class="sig-paren">(</span><em class="sig-param">country</em>, <em class="sig-param">bc_inbox_repo</em>, <em class="sig-param">message_lake_repo</em>, <em class="sig-param">object_acl_repo</em>, <em class="sig-param">object_retreval_repo</em>, <em class="sig-param">notifications_repo</em>, <em class="sig-param">blockchain_outbox_repo</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/intergov/use_cases/process_message.html#ProcessMessageUseCase"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#intergov.use_cases.ProcessMessageUseCase" title="Permalink to this definition">¶</a></dt>
+<dd><p>Used by the message processing background worker.</p>
+<p>Gets one message from the channel inbox
+and does number of things with it.</p>
+<ul class="simple">
+<li><p>dispatch document retreval job
+(if the message is from a foreign source)</p></li>
+<li><p>dispatch message sending task to channel-outbox
+(if the message is from a domestic source)</p></li>
+<li><p>ensure the message is stored in the message lake</p></li>
+<li><p>ensure the access control lists are updated 
+for this message</p></li>
+<li><p>dispatch any WebSub events required for this message</p></li>
+</ul>
+<p>Note: the inbound message may have come from
+one of two sources: it may be a message from within
+this country, or it may be a message sent from another country.
+This use-case works with either message,
+however it needs to know which country it is working as
+to get the logic right
+(that is why it takes a country parameter
+when it is instantiated).</p>
+</dd></dl>
+
+<p>The message processing task touches quire a few backing services.</p>
+</div>
+<div class="section" id="message-updater">
+<h2>Message Updater<a class="headerlink" href="#message-updater" title="Permalink to this headline">¶</a></h2>
+<p>This worker updates the metadata of existing messages,
+regardless of the source of the change.</p>
+<p>Rather than updating messages directly,
+other workers dispatch a “message update job”
+to a queue, and this worker then performs the deed
+in the message lake
+(using a patch call on the message API).</p>
+<dl class="class">
+<dt id="intergov.processors.message_updater.MessageUpdater">
+<em class="property">class </em><code class="sig-prename descclassname">intergov.processors.message_updater.</code><code class="sig-name descname">MessageUpdater</code><span class="sig-paren">(</span><em class="sig-param">message_updates_repo_conf=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/intergov/processors/message_updater.html#MessageUpdater"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#intergov.processors.message_updater.MessageUpdater" title="Permalink to this definition">¶</a></dt>
+<dd><p>Iterate over message update jobs:</p>
+<ul class="simple">
+<li><p>get a job from the queue</p></li>
+<li><p>after some job validation, update the message using the API</p></li>
+<li><p>if sucessful, delete the job from the queue</p></li>
+<li><p>if unsucessful, increment retry counter and reschedule attempt</p></li>
+</ul>
+</dd></dl>
+
+<p class="plantuml">
+<img src="_images/plantuml-c253503730df0a9b77829a54e39f211b6ccb07b8.png" alt="&#64;startuml
+component mu [
+   Message
+   Updater
+]
+component patch_endpoint [
+   Message
+   API
+]
+usecase uc [
+   Update Message
+]
+mu -- uc
+uc -- patch_endpoint
+database repo [
+   message
+   updates
+]
+boundary get [
+   get
+   job
+]
+get -- repo
+uc -- get
+boundary delete [
+   delete
+   job
+]
+uc -- delete
+delete -- repo
+boundary update [
+   increment
+   retry
+   counter
+]
+uc -- update
+update -- repo
+&#64;enduml"/>
+</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Platform Services</a><ul>
+<li><a class="reference internal" href="#inbound-message-processor">Inbound Message Processor</a></li>
+<li><a class="reference internal" href="#message-updater">Message Updater</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="inbound.html"
+                        title="previous chapter">Inbound Message Flow</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="backing.html"
+                        title="next chapter">Backing Services</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/platform.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="backing.html" title="Backing Services"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="inbound.html" title="Inbound Message Flow"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Intergov Ledger 0.1.0 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2019, Commonwealth of Australia.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 2.2.0.
+    </div>
+  </body>
+</html>
