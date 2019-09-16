@@ -19,4 +19,12 @@ make html
 # for file in $(ls) that is not in $KEEP_LIST,
 # if it is not in ls ...
 cp -r _build/html/* $DOC_SRC_DIR
-touch $DOC_SRC_DIR/.nojekyl
+touch $DOC_SRC_DIR/.nojekyll
+
+#
+# Then, commit the changes and push them to GitHub.
+# The GitHub Pages mechanism will publish them.
+#
+# To change the docs, change the document source
+# in the $CODE_SRC_DIR and follow normal GitHub PR workflow.
+#
