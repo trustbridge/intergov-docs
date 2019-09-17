@@ -46,10 +46,10 @@ by enabling Government to Government (G2G)
 document exchange.</p>
 <div class="section" id="hubs-models-are-obvious-but-possibly-wrong">
 <h2>Hubs models are obvious, but possibly wrong<a class="headerlink" href="#hubs-models-are-obvious-but-possibly-wrong" title="Permalink to this headline">¶</a></h2>
-<p>First, let’s start
+<p>First, let's start
 by considering the alternative
 to multi-channel architecture;
-a single channel (or “Hub”) model.</p>
+a single channel (or &quot;Hub&quot;) model.</p>
 <p class="plantuml">
 <img src="_images/plantuml-1754b73dc82f93bffb5def5b731e936e782c8f70.png" alt="&#64;startuml
 component ca [
@@ -98,7 +98,7 @@ and receive their messages from it too.</p>
 <p>Hub models require participants
 to adopt a common technology platform.
 This platform must meet the needs
-of all participatnts
+of all participants
 both in the moment and in the future.</p>
 <p>Hub architectures have been built many times before.
 Some people find this sort of design intuitively appealing,
@@ -185,19 +185,19 @@ ch2 -- cg
 ch3 -- ch
 &#64;enduml"/>
 </p>
-<p>The above illustration shows a multi-channel scenaro where:</p>
+<p>The above illustration shows a multi-channel scenario where:</p>
 <ul class="simple">
-<li><p>Country A and Country E have a bilateral arangement for exchanging messages on any topic</p></li>
-<li><p>There is a multilateral arangement
+<li><p>Country A and Country E have a bilateral arrangement for exchanging messages on any topic</p></li>
+<li><p>There is a multilateral arrangement
 between Countries B, E and F
 that supports messages on any topic</p></li>
-<li><p>There is a multilateral arangement
+<li><p>There is a multilateral arrangement
 between Countries A, B, C, F and G
 that supports messages on a specific topic</p></li>
-<li><p>There is a multilateral arangement
-between Countries B, C, D, F, G and others (…)
+<li><p>There is a multilateral arrangement
+between Countries B, C, D, F, G and others (...)
 that supports messages on any topic</p></li>
-<li><p>There is an arangement between Country D and others
+<li><p>There is an arrangement between Country D and others
 supporting messages on some specific topic.</p></li>
 </ul>
 <p>On first impression, the above scenario
@@ -214,12 +214,12 @@ others are multilateral (networks).
 The scope and details are customised
 and optimised through a process of negotiation.
 They changes over time,
-as existing arangements are refined or adjusted
-and new arangements are made.</p>
+as existing arrangements are refined or adjusted
+and new arrangements are made.</p>
 <p>Even if a hub model is theoretically better
-(no such theory is offerd here),
+(no such theory is offered here),
 the idea of asking almost 200 countries
-to agree on a precice scope and details
+to agree on a precise scope and details
 for sharing cross-border trade documents
 seems like it would be slow,
 difficult and unlikely to succeed.</p>
@@ -227,17 +227,17 @@ difficult and unlikely to succeed.</p>
 but they have narrow scope
 (for example, ePhyto Certification).</p>
 <p>It seems more pragmatic to assume that
-cooperative sharing arangements
+cooperative sharing arrangements
 involving cross-border trade documentation
 will involve a similar process of negotiation
 to other international agreements.</p>
 <p>While technical standardisation may reduce waste,
 free countries will always ultimately determine
 who they share what with, when and how;
-and those arangements will change over time
+and those arrangements will change over time
 with policy and circumstance.</p>
 <p>Any design that does not support variable topologies
-seems likly to result in a sub-optimal compromise.</p>
+seems likely to result in a sub-optimal compromise.</p>
 </div>
 <div class="section" id="support-for-variable-technology">
 <h3>Support for Variable Technology<a class="headerlink" href="#support-for-variable-technology" title="Permalink to this headline">¶</a></h3>
@@ -252,7 +252,7 @@ or make previously difficult things more easy.
 No doubt technology will continue to evolve
 and as-yet unimagined solutions will emerge
 with even more favourable characteristics.</p>
-<p>Sometimes, the best tehcnology choice in a given situation
+<p>Sometimes, the best technology choice in a given situation
 would not be the best choice in a different situation.
 The asset lifecycle of existing systems,
 infrastructure, organisational capacities
@@ -261,15 +261,15 @@ can create a prediliction
 (or an aversion)
 for specific technologies.</p>
 <p>Even if it were possible to determine
-a universal “best technology”
+a universal &quot;best technology&quot;
 to implement cross-border trade document sharing,
-that would be a fleeting anomoly.</p>
+that would be a fleeting anomaly.</p>
 <p>Any design that does not allow countries
 to negotiate technology choices
 (and mutually agree to update or upgrade technology)
 seems incongruent with
 the other negotiated details
-of international arangements.
+of international arrangements.
 An attempt to unilaterally impose
 a single, unchanging technology choice
 would not only require impractically challenging negotiation,
@@ -280,9 +280,9 @@ against the march of technological progress.</p>
 <h3>Support for Variable Protocols<a class="headerlink" href="#support-for-variable-protocols" title="Permalink to this headline">¶</a></h3>
 <p>The current proof of concept
 supports a wire protocol that
-we called “Discrete Generic Message” (DGM).
+we called &quot;Discrete Generic Message&quot; (DGM).
 Each communication packet between countries
-contains a single (“discrete”) message,
+contains a single (&quot;discrete&quot;) message,
 and there is no limit to
 the taxonomy of message types
 that could be sent
@@ -295,11 +295,11 @@ However, there are also situations
 where a different protocol design
 may be more appropriate.</p>
 <p>If there are very high message volumes,
-or a technology is used with a low bandwith
+or a technology is used with a low bandwidth
 (or high cost per transmission),
 then a <em>batched</em> protocol design
 may be more appropriate.
-Rather than sending “discrete” messages
+Rather than sending &quot;discrete&quot; messages
 (one at a time)
 a batch protocol could send
 a compressed collection of messages
@@ -310,14 +310,14 @@ especially with all-or-nothing validation semantics
 but there may be situations where
 a batch protocol is the most practical choice.</p>
 <p>Some distributed ledger technologies
-support a feature called “Smart Contracts”.
+support a feature called &quot;Smart Contracts&quot;.
 These are sometimes known by other names,
-such as “Transaction Families” or “Chain Code”,
+such as &quot;Transaction Families&quot; or &quot;Chain Code&quot;,
 but what they all have in common is that they allow
 the channel to enforce mutually agreed policies
 in a trustworthy way.
 Smart contracts allow distributed ledger
-to operate like an “independant umpire”,
+to operate like an &quot;independant umpire&quot;,
 which is potentially useful
 in a wide variety situations
 that require adversarial trust.
@@ -331,7 +331,7 @@ to the policies implemented in the smart contract.</p>
 developing a channel that fits them all well
 could be very difficult or perhaps impossible.
 The strategy of allowing multiple channels
-might make the soluton seem more complicated
+might make the solution seem more complicated
 from some perspectives,
 but if countries can route messages over multiple channels
 then it should be possible for a country
@@ -342,14 +342,14 @@ that best fit their needs.</p>
 <div class="section" id="interoperability-requires-standard-interfaces">
 <h2>Interoperability requires standard interfaces<a class="headerlink" href="#interoperability-requires-standard-interfaces" title="Permalink to this headline">¶</a></h2>
 <p>The multi-channel architecture theory needs to be tested.</p>
-<p>This Proof of Concept software includes a “channel router” component,
+<p>This Proof of Concept software includes a &quot;channel router&quot; component,
 with a mechanism for deciding which channel should be used for each message
-(i.e. an “outbound message routing” mechanism).
-It also includes a “channel observer” component,
+(i.e. an &quot;outbound message routing&quot; mechanism).
+It also includes a &quot;channel observer&quot; component,
 which is a mechanism for accepting messages from different messages
 and funneling them all into the same process regardless of how they are transmitted.</p>
 <p>The code is designed in a way that assumes
-that a standardised “Channel API” exists,
+that a standardised &quot;Channel API&quot; exists,
 however an actual Channel API
 has not been developed yet.</p>
 <p>This requires active research,

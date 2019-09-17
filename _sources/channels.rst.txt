@@ -66,7 +66,7 @@ and receive their messages from it too.
 Hub models require participants
 to adopt a common technology platform.
 This platform must meet the needs
-of all participatnts
+of all participants
 both in the moment and in the future.
 
 Hub architectures have been built many times before.
@@ -159,19 +159,19 @@ consider the following:
    ch3 -- ch
    @enduml
 
-The above illustration shows a multi-channel scenaro where:
+The above illustration shows a multi-channel scenario where:
 
-* Country A and Country E have a bilateral arangement for exchanging messages on any topic
-* There is a multilateral arangement
+* Country A and Country E have a bilateral arrangement for exchanging messages on any topic
+* There is a multilateral arrangement
   between Countries B, E and F
   that supports messages on any topic
-* There is a multilateral arangement
+* There is a multilateral arrangement
   between Countries A, B, C, F and G
   that supports messages on a specific topic
-* There is a multilateral arangement
+* There is a multilateral arrangement
   between Countries B, C, D, F, G and others (...)
   that supports messages on any topic
-* There is an arangement between Country D and others
+* There is an arrangement between Country D and others
   supporting messages on some specific topic.
 
 On first impression, the above scenario
@@ -192,13 +192,13 @@ others are multilateral (networks).
 The scope and details are customised
 and optimised through a process of negotiation.
 They changes over time,
-as existing arangements are refined or adjusted
-and new arangements are made.
+as existing arrangements are refined or adjusted
+and new arrangements are made.
 
 Even if a hub model is theoretically better
-(no such theory is offerd here),
+(no such theory is offered here),
 the idea of asking almost 200 countries
-to agree on a precice scope and details
+to agree on a precise scope and details
 for sharing cross-border trade documents
 seems like it would be slow,
 difficult and unlikely to succeed.
@@ -208,7 +208,7 @@ but they have narrow scope
 (for example, ePhyto Certification).
 
 It seems more pragmatic to assume that
-cooperative sharing arangements
+cooperative sharing arrangements
 involving cross-border trade documentation
 will involve a similar process of negotiation
 to other international agreements.
@@ -216,11 +216,11 @@ to other international agreements.
 While technical standardisation may reduce waste,
 free countries will always ultimately determine
 who they share what with, when and how;
-and those arangements will change over time
+and those arrangements will change over time
 with policy and circumstance.
 
 Any design that does not support variable topologies
-seems likly to result in a sub-optimal compromise.
+seems likely to result in a sub-optimal compromise.
 
 
 Support for Variable Technology
@@ -238,7 +238,7 @@ No doubt technology will continue to evolve
 and as-yet unimagined solutions will emerge
 with even more favourable characteristics.
 
-Sometimes, the best tehcnology choice in a given situation
+Sometimes, the best technology choice in a given situation
 would not be the best choice in a different situation.
 The asset lifecycle of existing systems,
 infrastructure, organisational capacities
@@ -250,14 +250,14 @@ for specific technologies.
 Even if it were possible to determine
 a universal "best technology"
 to implement cross-border trade document sharing,
-that would be a fleeting anomoly.
+that would be a fleeting anomaly.
 
 Any design that does not allow countries
 to negotiate technology choices
 (and mutually agree to update or upgrade technology)
 seems incongruent with
 the other negotiated details
-of international arangements.
+of international arrangements.
 An attempt to unilaterally impose
 a single, unchanging technology choice
 would not only require impractically challenging negotiation,
@@ -287,7 +287,7 @@ where a different protocol design
 may be more appropriate.
 
 If there are very high message volumes,
-or a technology is used with a low bandwith
+or a technology is used with a low bandwidth
 (or high cost per transmission),
 then a *batched* protocol design
 may be more appropriate.
@@ -328,7 +328,7 @@ Given the bespoke nature of international trade agreements,
 developing a channel that fits them all well
 could be very difficult or perhaps impossible.
 The strategy of allowing multiple channels
-might make the soluton seem more complicated
+might make the solution seem more complicated
 from some perspectives,
 but if countries can route messages over multiple channels
 then it should be possible for a country

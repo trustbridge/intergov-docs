@@ -126,21 +126,21 @@ push_mu -- mu_repo
 than it might seem at first.
 Channels need to be potentially asynchronous.
 For example, with a blockchain channel,
-messages are “written” to the extent of the consensus.
-It’s technically possible for blockchains to fork,
-meaning that the concensus “changes it’s mind”
+messages are &quot;written&quot; to the extent of the consensus.
+It's technically possible for blockchains to fork,
+meaning that the concensus &quot;changes it's mind&quot;
 about the shared view of history.</p>
 <p>This means that,
 in addition to routing the message to the channel,
 the router must also dispatch a couple of jobs
 (asynchronous processing tasks):</p>
 <ul class="simple">
-<li><p>“Channel Pending” jobs are used keep track of messages
+<li><p>&quot;Channel Pending&quot; jobs are used keep track of messages
 that may not yet have been sucessfully delivered by the channel.
 Depending on the outcome of channel processing,
 the appropriate steps for processing these messages
 may not yet be known.</p></li>
-<li><p>“Delivery Status” journal is updated
+<li><p>&quot;Delivery Status&quot; journal is updated
 to keep track of the channel delivery status
 so stakeholder processes can remain appraised
 of important delivery/non-delivery events.</p></li>
@@ -197,7 +197,7 @@ uc -- post
 post -- updates
 &#64;enduml"/>
 </p>
-<p>This worker deletes jobs from the “pending messages” queue
+<p>This worker deletes jobs from the &quot;pending messages&quot; queue
 when an change is detected (by polling the channel).
 If no change is detected,
 the job is not deleted from the pending messages queue.
@@ -205,7 +205,7 @@ But neither is it returned to the queue -
 the worker holds a lock on the job until it goes stale.
 This way, the worker polls the queue sequentially
 at most once per task timeout period configured on the queue.</p>
-<p>It’s a bit of a cheap trick but it seems to work quite well.</p>
+<p>It's a bit of a cheap trick but it seems to work quite well.</p>
 </div>
 <div class="section" id="rejected-message-processor">
 <h2>Rejected Message Processor<a class="headerlink" href="#rejected-message-processor" title="Permalink to this headline">¶</a></h2>
@@ -216,8 +216,8 @@ the sending component (multi channel router)
 does not wait to know the status,
 it just carries on sending.</p>
 <p>That is why the channel poller component
-manages data in the “pending deliveries” database
-and posts update jobs to the “message updates” queue.
+manages data in the &quot;pending deliveries&quot; database
+and posts update jobs to the &quot;message updates&quot; queue.
 Thus, message updates queue contains jobs to be done
 updating the delivery status of messages.</p>
 <p>The task of this component
